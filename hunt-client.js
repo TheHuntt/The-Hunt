@@ -9,7 +9,7 @@
    project: Dashboard → Project Settings → API.
    ============================================================ */
 
-const SUPABASE_URL = "https://ksgjoyisnekbjjzcewnx.supabase.co/rest/v1/";
+const SUPABASE_URL = "https://ksgjoyisnekbjjzcewnx.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtzZ2pveWlzbmVrYmpqemNld254Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ1MTMxNzUsImV4cCI6MjEwMDA4OTE3NX0.Gd3UTj2Vhq0L58kibztJoGP4Ijl-k6z03yoSUP8ogVQ";
 
 const huntClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
