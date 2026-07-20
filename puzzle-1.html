@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Key I — The Wounded Soldier</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#0a0e17; --panel:#0f1626; --panel-edge:#1e2a45;
+    --cyan:#4cffe0; --amber:#ffb627; --magenta:#ff3ec9;
+    --text:#d7e3ff; --muted:#5f6d8c; --danger:#ff5c5c;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh; padding:32px 16px 80px;
+    background:
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 1px, transparent 1px, transparent 3px),
+      radial-gradient(ellipse at 50% -10%, #142038 0%, var(--bg) 55%);
+    color:var(--text); font-family:'Space Mono', monospace;
+  }
+  .wrap{max-width:640px; margin:0 auto;}
+  a.back{color:var(--muted); font-size:12px; text-decoration:none;}
+  .panel{
+    background:var(--panel); border:1px solid var(--panel-edge); border-radius:8px;
+    padding:32px; margin-top:20px; position:relative;
+  }
+  .panel::before{
+    content:""; position:absolute; top:0; left:0; right:0; height:3px;
+    background:linear-gradient(90deg, var(--cyan), var(--magenta), var(--amber));
+    border-radius:8px 8px 0 0;
+  }
+  .key-label{font-family:'Press Start 2P', monospace; font-size:11px; color:var(--magenta); margin-bottom:14px;}
+  h1{font-size:20px; margin:0 0 18px;}
+  p{line-height:1.85; font-size:14px;}
+  .cipher-block{
+    display:block; background:#060a12; border:1px dashed var(--panel-edge); border-radius:4px;
+    padding:16px; margin:16px 0; font-size:18px; letter-spacing:4px; color:var(--cyan); text-align:center;
+  }
+  .input-row{display:flex; gap:10px; margin-top:22px; flex-wrap:wrap;}
+  input[type=text]{
+    flex:1; min-width:160px; background:#060a12; border:1px solid var(--panel-edge); border-radius:4px;
+    color:var(--text); font-family:'Space Mono', monospace; font-size:15px; padding:12px 14px;
+    letter-spacing:2px; text-transform:uppercase; outline:none;
+  }
+  input:focus{border-color:var(--cyan);}
+  button{
+    font-family:'Press Start 2P', monospace; font-size:11px; background:var(--cyan); color:#04140f;
+    border:none; border-radius:4px; padding:0 22px; cursor:pointer;
+  }
+  button:hover{box-shadow:0 0 16px rgba(76,255,224,.5);}
+  .feedback{margin-top:14px; font-size:13px; min-height:18px;}
+  .feedback.wrong{color:var(--danger);}
+  .feedback.right{color:var(--cyan);}
+  .locked{text-align:center; padding:40px 0; color:var(--muted);}
+  .next-link{display:none; margin-top:20px; padding:16px; background:#060a12; border:1px solid var(--cyan); border-radius:4px;}
+  .next-link a{color:var(--cyan); font-weight:bold;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="leaderboard.html">← back to the hub</a>
+
+  <div class="panel" id="lockedPanel" style="display:none;">
+    <div class="locked">🔒 Sign in from the hub page first.</div>
+  </div>
+
+  <div class="panel" id="puzzlePanel" style="display:none;">
+    <div class="key-label">KEY I — THE WOUNDED SOLDIER</div>
+    <h1>A wound that moved</h1>
+
+    <p>
+      Somewhere in the first published case of a certain famous consulting
+      detective, his companion — a war-wounded doctor, freshly returned from
+      Afghanistan — is introduced. The very opening pages name his exact
+      regiment: an army division identified by a number and a place.
+    </p>
+    <p>
+      Find that regiment's name in the original text (not a summary — the
+      exact phrase matters). Take the first letter of each of its three
+      words. That three-letter string is your cipher key.
+    </p>
+    <p>
+      Use it to decrypt this Vigenère cipher (A=0 convention, standard
+      Vigenère table, repeating key):
+    </p>
+
+    <span class="cipher-block">OREFVQ</span>
+
+    <p style="color:var(--muted); font-size:13px;">
+      The decrypted word is a piece of period military slang for the very
+      thing that wounded him — still used today in a slightly different sense.
+    </p>
+
+    <div class="input-row">
+      <input type="text" id="answerInput" placeholder="ENTER KEY">
+      <button id="submitBtn">UNLOCK</button>
+    </div>
+    <div class="feedback" id="feedback"></div>
+
+    <div class="next-link" id="nextLink">
+      Key I accepted. On to the next stage — link goes here once Key II exists.
+    </div>
+  </div>
+</div>
+
+<script src="hunt-client.js"></script>
+<script>
+(async () => {
+  const user = await huntGetUser();
+  if(!user){
+    document.getElementById('lockedPanel').style.display = 'block';
+    return;
+  }
+  // This puzzle has no prerequisite (unlocksAfter: 0 on the hub page),
+  // so no progress check is needed here. For a later puzzle, add:
+  //   const done = await huntGetProgress();
+  //   if(!done.includes(PREVIOUS_STAGE)){ show locked message; return; }
+  document.getElementById('puzzlePanel').style.display = 'block';
+
+  const alreadyDone = (await huntGetProgress()).includes(1);
+  if(alreadyDone){
+    document.getElementById('feedback').textContent = 'Already solved — nice work.';
+    document.getElementById('feedback').className = 'feedback right';
+    document.getElementById('nextLink').style.display = 'block';
+  }
+})();
+
+document.getElementById('submitBtn').addEventListener('click', async () => {
+  const input = document.getElementById('answerInput');
+  const feedback = document.getElementById('feedback');
+  const guess = input.value.trim();
+  if(!guess) return;
+
+  feedback.textContent = 'checking...';
+  feedback.className = 'feedback';
+
+  const result = await huntSubmitAnswer(1, guess);
+
+  if(result.error){
+    feedback.textContent = result.error;
+    feedback.className = 'feedback wrong';
+    return;
+  }
+  if(result.correct){
+    feedback.textContent = 'CORRECT — KEY I ACCEPTED';
+    feedback.className = 'feedback right';
+    document.getElementById('nextLink').style.display = 'block';
+  } else {
+    feedback.textContent = 'INCORRECT — TRY AGAIN';
+    feedback.className = 'feedback wrong';
+  }
+});
+</script>
+</body>
+</html>
