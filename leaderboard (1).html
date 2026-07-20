@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Hunt // Leaderboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#0a0e17; --panel:#0f1626; --panel-edge:#1e2a45;
+    --cyan:#4cffe0; --amber:#ffb627; --magenta:#ff3ec9;
+    --text:#d7e3ff; --muted:#5f6d8c; --danger:#ff5c5c;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh; padding:32px 16px 80px;
+    background:
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 1px, transparent 1px, transparent 3px),
+      radial-gradient(ellipse at 50% -10%, #142038 0%, var(--bg) 55%);
+    color:var(--text); font-family:'Space Mono', monospace;
+  }
+  .wrap{max-width:640px; margin:0 auto;}
+  h1{
+    font-family:'Press Start 2P', monospace; font-size:clamp(18px,5vw,28px);
+    text-align:center; color:var(--cyan); text-shadow:0 0 18px rgba(76,255,224,.45);
+    margin:0 0 30px;
+  }
+  .panel{
+    background:var(--panel); border:1px solid var(--panel-edge); border-radius:8px;
+    padding:24px; margin-bottom:24px; position:relative;
+  }
+  .panel::before{
+    content:""; position:absolute; top:0; left:0; right:0; height:3px;
+    background:linear-gradient(90deg, var(--cyan), var(--magenta), var(--amber));
+    border-radius:8px 8px 0 0;
+  }
+  .panel h2{
+    font-family:'Press Start 2P', monospace; font-size:12px; color:var(--magenta);
+    margin:0 0 16px;
+  }
+  input[type=email], input[type=text]{
+    width:100%; background:#060a12; border:1px solid var(--panel-edge); border-radius:4px;
+    color:var(--text); font-family:'Space Mono', monospace; font-size:14px;
+    padding:10px 12px; margin-bottom:10px; outline:none;
+  }
+  input:focus{border-color:var(--cyan);}
+  button{
+    font-family:'Press Start 2P', monospace; font-size:10px;
+    background:var(--cyan); color:#04140f; border:none; border-radius:4px;
+    padding:12px 18px; cursor:pointer;
+  }
+  button:hover{box-shadow:0 0 14px rgba(76,255,224,.5);}
+  button.ghost{background:transparent; border:1px solid var(--panel-edge); color:var(--muted);}
+  button.small{padding:8px 14px; font-size:9px;}
+  .msg{font-size:12px; margin-top:8px; color:var(--muted);}
+  .msg.ok{color:var(--cyan);}
+  .msg.err{color:var(--danger);}
+  .name-display{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+
+  table{width:100%; border-collapse:collapse; font-size:13px;}
+  th,td{text-align:left; padding:8px 6px; border-bottom:1px solid var(--panel-edge);}
+  th{color:var(--muted); font-weight:normal; font-size:11px; text-transform:uppercase;}
+  tr:first-child td{color:var(--amber);}
+
+  .puzzle-row{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:12px 0; border-bottom:1px solid var(--panel-edge);
+  }
+  .puzzle-row:last-child{border-bottom:none;}
+  .puzzle-row a{color:var(--cyan); text-decoration:none; font-weight:bold;}
+  .puzzle-row a:hover{text-decoration:underline;}
+  .locked{color:var(--muted);}
+  .lock-icon{margin-right:8px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>THE HUNT</h1>
+
+  <div class="panel" id="authPanel">
+    <h2>SIGN IN</h2>
+    <div id="loggedOut">
+      <input type="email" id="emailInput" placeholder="you@example.com">
+      <button id="sendLinkBtn">SEND LOGIN LINK</button>
+      <div class="msg" id="authMsg"></div>
+    </div>
+    <div id="loggedIn" style="display:none;">
+      <div class="msg ok" id="whoami"></div>
+      <div id="nameArea" style="margin-top:12px;"></div>
+      <button class="ghost" id="signOutBtn" style="margin-top:12px;">sign out</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>PUZZLES</h2>
+    <div id="puzzleList"></div>
+  </div>
+
+  <div class="panel">
+    <h2>LEADERBOARD</h2>
+    <table>
+      <thead><tr><th>#</th><th>Solver</th><th>Stages</th><th>Points</th></tr></thead>
+      <tbody id="leaderboardBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<script src="hunt-client.js"></script>
+<script>
+/* ============================================================
+   EDIT THIS LIST as you add puzzles. `unlocksAfter` is the stage
+   number that must be completed first — use 0 for the first
+   puzzle, so everyone can always reach stage 1.
+   ============================================================ */
+const PUZZLES = [
+  { stage: 1, title: "KEY I — The Wounded Soldier", url: "puzzle-1.html", unlocksAfter: 0 },
+  // { stage: 2, title: "KEY II — ...", url: "puzzle-2.html", unlocksAfter: 1 },
+];
+
+/* ============================================================
+   Basic name filtering. This is a simple substring blocklist,
+   not a comprehensive profanity filter — add more terms here
+   any time. It catches obvious cases, not clever workarounds.
+   ============================================================ */
+const BLOCKED_TERMS = [
+  "fuck", "shit", "bitch", "asshole", "cunt", "nigger", "nigga",
+  "faggot", "retard", "rape", "admin", "moderator"
+];
+
+function isNameAllowed(name){
+  const lower = name.toLowerCase();
+  return !BLOCKED_TERMS.some(term => lower.includes(term));
+}
+
+// Escapes text before inserting into HTML, so a display name can
+// never inject a script or markup into the page for other viewers.
+function escapeHTML(str){
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function validateName(name){
+  if(name.length < 3) return "Name must be at least 3 characters.";
+  if(name.length > 20) return "Name must be 20 characters or fewer.";
+  if(!/^[A-Za-z0-9 _\-]+$/.test(name)) return "Only letters, numbers, spaces, - and _ are allowed.";
+  if(!isNameAllowed(name)) return "That name isn't allowed — please pick another.";
+  return null;
+}
+
+let currentProfile = null;
+
+function renderNameArea(editing){
+  const area = document.getElementById('nameArea');
+  if(currentProfile && currentProfile.display_name && !editing){
+    area.innerHTML = `
+      <div class="name-display">
+        <div class="msg ok">Display name: <b>${escapeHTML(currentProfile.display_name)}</b></div>
+        <button class="ghost small" id="editNameBtn">change</button>
+      </div>`;
+    document.getElementById('editNameBtn').addEventListener('click', () => renderNameArea(true));
+  } else {
+    const existing = currentProfile && currentProfile.display_name ? currentProfile.display_name : '';
+    area.innerHTML = `
+      <input type="text" id="nameInput" placeholder="Pick a display name (3–20 characters)" value="${escapeHTML(existing)}">
+      <button id="saveNameBtn">SAVE NAME</button>
+      <div class="msg" id="nameMsg"></div>`;
+    document.getElementById('saveNameBtn').addEventListener('click', submitName);
+  }
+}
+
+async function submitName(){
+  const input = document.getElementById('nameInput');
+  const nameMsg = document.getElementById('nameMsg');
+  const name = input.value.trim();
+
+  const problem = validateName(name);
+  if(problem){
+    nameMsg.textContent = problem;
+    nameMsg.className = 'msg err';
+    return;
+  }
+
+  const result = await huntSetDisplayName(name);
+
+  if(result && result.error){
+    // Postgres unique-violation code for the display_name column
+    if(result.error.code === '23505'){
+      nameMsg.textContent = 'That name is already taken — try another.';
+    } else {
+      nameMsg.textContent = 'Something went wrong — try again.';
+    }
+    nameMsg.className = 'msg err';
+    return;
+  }
+
+  currentProfile = { display_name: name };
+  renderNameArea(false);
+  renderPuzzles();
+  renderLeaderboard();
+}
+
+async function renderAuth(){
+  const user = await huntGetUser();
+  if(user){
+    document.getElementById('loggedOut').style.display = 'none';
+    document.getElementById('loggedIn').style.display = 'block';
+    document.getElementById('whoami').textContent = `Signed in as ${user.email}`;
+    currentProfile = await huntGetProfile();
+    renderNameArea(false);
+  } else {
+    document.getElementById('loggedOut').style.display = 'block';
+    document.getElementById('loggedIn').style.display = 'none';
+    currentProfile = null;
+  }
+}
+
+async function renderPuzzles(){
+  const list = document.getElementById('puzzleList');
+
+  if(!currentProfile || !currentProfile.display_name){
+    list.innerHTML = `<div class="msg">Sign in and set a display name above to unlock puzzles.</div>`;
+    return;
+  }
+
+  const done = await huntGetProgress();
+  list.innerHTML = PUZZLES.map(p => {
+    const unlocked = p.unlocksAfter === 0 || done.includes(p.unlocksAfter);
+    const solved = done.includes(p.stage);
+    if(unlocked){
+      return `<div class="puzzle-row">
+        <a href="${p.url}">${escapeHTML(p.title)}${solved ? ' ✓' : ''}</a>
+      </div>`;
+    } else {
+      return `<div class="puzzle-row locked">
+        <span class="lock-icon">🔒</span> ${escapeHTML(p.title)}
+      </div>`;
+    }
+  }).join('');
+}
+
+async function renderLeaderboard(){
+  const rows = await huntGetLeaderboard();
+  const body = document.getElementById('leaderboardBody');
+  body.innerHTML = rows.map((r,i) =>
+    `<tr><td>${i+1}</td><td>${escapeHTML(r.name)}</td><td>${r.stages_completed}</td><td>${r.total_points}</td></tr>`
+  ).join('') || '<tr><td colspan="4" class="msg">No solves yet — be the first!</td></tr>';
+}
+
+document.getElementById('sendLinkBtn').addEventListener('click', async () => {
+  const email = document.getElementById('emailInput').value.trim();
+  const msg = document.getElementById('authMsg');
+  if(!email){ msg.textContent = 'Enter an email first.'; msg.className='msg err'; return; }
+  const error = await huntSignIn(email);
+  if(error){
+    msg.textContent = error.message; msg.className = 'msg err';
+  } else {
+    msg.textContent = 'Check your email for a login link!'; msg.className = 'msg ok';
+  }
+});
+
+document.getElementById('signOutBtn').addEventListener('click', async () => {
+  await huntSignOut();
+  renderAuth();
+  renderPuzzles();
+});
+
+(async () => {
+  await renderAuth();
+  await renderPuzzles();
+  await renderLeaderboard();
+})();
+</script>
+</body>
+</html>
