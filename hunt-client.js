@@ -69,7 +69,7 @@ async function huntSubmitAnswer(stage, guess) {
   const { data: { session } } = await huntClient.auth.getSession();
   if (!session) return { error: "not logged in" };
 
-  const res = await fetch(`${SUPABASE_URL}/functions/v1/check-answer`, {
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/super-api`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
